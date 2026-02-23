@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audloop</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --border: #2a2a3a;
+    --accent: #ff3c6e;
+    --accent2: #00e5ff;
+    --text: #e8e8f0;
+    --muted: #55556a;
+    --error: #ff3c6e;
+    --success: #00e5ff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 50%, rgba(255,60,110,0.07) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 50% at 80% 50%, rgba(0,229,255,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .scanlines {
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 620px;
+    padding: 2rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 5rem;
+    letter-spacing: 0.1em;
+    line-height: 1;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 30px rgba(255,60,110,0.3));
+    animation: logoGlow 3s ease-in-out infinite alternate;
+  }
+
+  @keyframes logoGlow {
+    from { filter: drop-shadow(0 0 20px rgba(255,60,110,0.2)); }
+    to   { filter: drop-shadow(0 0 40px rgba(0,229,255,0.4)); }
+  }
+
+  .tagline {
+    font-size: 0.65rem;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 0.4rem;
+  }
+
+  /* PANELS */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    position: relative;
+    transition: border-color 0.3s;
+  }
+
+  .panel:hover {
+    border-color: rgba(255,60,110,0.3);
+  }
+
+  .panel-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+
+  /* DROP ZONE */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 4px;
+    padding: 2.5rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent2);
+    background: rgba(0,229,255,0.03);
+  }
+
+  .drop-zone input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .drop-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+    display: block;
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-6px); }
+  }
+
+  .drop-text {
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  .file-name {
+    margin-top: 0.75rem;
+    font-size: 0.7rem;
+    color: var(--accent2);
+    letter-spacing: 0.05em;
+    min-height: 1em;
+  }
+
+  /* WAVEFORM */
+  .waveform-wrap {
+    margin-top: 1rem;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    overflow: hidden;
+  }
+
+  .bar {
+    flex: 1;
+    background: var(--border);
+    border-radius: 2px;
+    transition: background 0.3s, height 0.1s;
+    min-width: 2px;
+  }
+
+  .bar.active { background: var(--accent); }
+  .bar.played  { background: var(--accent2); }
+
+  /* LOOP NUMBER INPUT */
+  .loop-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .digit-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .digit-input-wrap {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .btn-step {
+    width: 32px;
+    height: 32px;
+    background: var(--border);
+    border: none;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 1.1rem;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-step:hover { background: var(--accent); }
+
+  .loop-input {
+    width: 80px;
+    height: 44px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    text-align: center;
+    border-radius: 2px;
+    outline: none;
+    letter-spacing: 0.1em;
+    transition: border-color 0.25s;
+    -moz-appearance: textfield;
+  }
+
+  .loop-input::-webkit-inner-spin-button,
+  .loop-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+  .loop-input:focus { border-color: var(--accent2); }
+
+  .loop-input.error { border-color: var(--error); animation: shake 0.4s; }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20%      { transform: translateX(-6px); }
+    40%      { transform: translateX(6px); }
+    60%      { transform: translateX(-4px); }
+    80%      { transform: translateX(4px); }
+  }
+
+  .error-msg {
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    color: var(--error);
+    min-height: 1.2em;
+    margin-top: 0.5rem;
+    text-align: center;
+    transition: opacity 0.3s;
+  }
+
+  /* CONTROLS */
+  .controls {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    flex: 1;
+    min-width: 100px;
+    padding: 0.9rem 1rem;
+    border: none;
+    border-radius: 2px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: white;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .btn:hover::after { opacity: 0.05; }
+  .btn:active::after { opacity: 0.1; }
+
+  .btn-play {
+    background: linear-gradient(135deg, var(--accent), #c01f4a);
+    color: white;
+  }
+
+  .btn-stop {
+    background: var(--border);
+    color: var(--text);
+  }
+
+  .btn-download {
+    background: linear-gradient(135deg, var(--accent2), #0099aa);
+    color: var(--bg);
+    font-weight: 700;
+  }
+
+  .btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  /* PROGRESS */
+  .progress-wrap {
+    margin-top: 1rem;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 0.1s linear;
+  }
+
+  /* STATUS */
+  .status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.75rem;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+
+  .status-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    margin-right: 0.4rem;
+    vertical-align: middle;
+  }
+
+  .status-dot.playing {
+    background: var(--accent);
+    animation: pulse 0.8s ease-in-out infinite alternate;
+  }
+
+  @keyframes pulse {
+    from { box-shadow: 0 0 0 0 rgba(255,60,110,0.5); }
+    to   { box-shadow: 0 0 0 6px rgba(255,60,110,0); }
+  }
+
+  .loop-counter {
+    color: var(--accent2);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 0.15em;
+  }
+</style>
+</head>
+<body>
+<div class="scanlines"></div>
+<div class="container">
+  <header>
+    <div class="logo">Audloop</div>
+    <div class="tagline">Audio Loop Machine</div>
+  </header>
+
+  <!-- LOAD AUDIO -->
+  <div class="panel">
+    <div class="panel-label">01 — Load Audio</div>
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept="audio/*">
+      <span class="drop-icon">🎵</span>
+      <div class="drop-text">Drop audio file here or click to browse</div>
+      <div class="file-name" id="fileName"></div>
+    </div>
+    <div class="waveform-wrap" id="waveform"></div>
+  </div>
+
+  <!-- LOOP COUNT -->
+  <div class="panel">
+    <div class="panel-label">02 — Loop Count</div>
+    <div class="loop-row">
+      <span class="digit-label">Repeat</span>
+      <div class="digit-input-wrap">
+        <button class="btn-step" id="btnMinus">−</button>
+        <input class="loop-input" type="text" id="loopCount" placeholder="?" value="">
+        <button class="btn-step" id="btnPlus">+</button>
+      </div>
+      <span class="digit-label">times</span>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="panel">
+    <div class="panel-label">03 — Controls</div>
+    <div class="controls">
+      <button class="btn btn-play" id="btnPlay" disabled>▶ Play</button>
+      <button class="btn btn-stop" id="btnStop" disabled>■ Stop</button>
+      <button class="btn btn-download" id="btnDownload" disabled>↓ Download</button>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div class="status-row">
+      <div><span class="status-dot" id="statusDot"></span><span id="statusText">Idle</span></div>
+      <div class="loop-counter" id="loopCounter">— / —</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let audioCtx = null;
+  let audioBuffer = null;
+  let sourceNode = null;
+  let isPlaying = false;
+  let currentLoop = 0;
+  let totalLoops = 0;
+  let startTime = 0;
+  let stopRequested = false;
+
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const fileName = document.getElementById('fileName');
+  const waveformEl = document.getElementById('waveform');
+  const loopInput = document.getElementById('loopCount');
+  const errorMsg = document.getElementById('errorMsg');
+  const btnPlay = document.getElementById('btnPlay');
+  const btnStop = document.getElementById('btnStop');
+  const btnDownload = document.getElementById('btnDownload');
+  const progressBar = document.getElementById('progressBar');
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const loopCounter = document.getElementById('loopCounter');
+  const btnMinus = document.getElementById('btnMinus');
+  const btnPlus = document.getElementById('btnPlus');
+
+  // Build waveform bars
+  const BAR_COUNT = 80;
+  const bars = [];
+  for (let i = 0; i < BAR_COUNT; i++) {
+    const b = document.createElement('div');
+    b.className = 'bar';
+    b.style.height = '4px';
+    waveformEl.appendChild(b);
+    bars.push(b);
+  }
+
+  function drawWaveform(buffer) {
+    const data = buffer.getChannelData(0);
+    const step = Math.floor(data.length / BAR_COUNT);
+    for (let i = 0; i < BAR_COUNT; i++) {
+      let max = 0;
+      for (let j = 0; j < step; j++) {
+        const v = Math.abs(data[i * step + j]);
+        if (v > max) max = v;
+      }
+      const h = Math.max(4, Math.round(max * 56));
+      bars[i].style.height = h + 'px';
+      bars[i].style.opacity = 0.6 + max * 0.4;
+    }
+  }
+
+  function updateBars(progress) {
+    const played = Math.floor(progress * BAR_COUNT);
+    bars.forEach((b, i) => {
+      b.classList.remove('active', 'played');
+      if (i < played) b.classList.add('played');
+      else if (i === played) b.classList.add('active');
+    });
+  }
+
+  function clearBars() {
+    bars.forEach(b => b.classList.remove('active', 'played'));
+  }
+
+  function setStatus(txt, playing = false) {
+    statusText.textContent = txt;
+    statusDot.className = 'status-dot' + (playing ? ' playing' : '');
+  }
+
+  function setError(msg) {
+    errorMsg.textContent = msg;
+    loopInput.classList.add('error');
+    setTimeout(() => loopInput.classList.remove('error'), 600);
+  }
+
+  function clearError() {
+    errorMsg.textContent = '';
+    loopInput.classList.remove('error');
+  }
+
+  function validateLoopCount() {
+    const val = loopInput.value.trim();
+    if (val === '' || val === null) {
+      setError("Where's the number?");
+      return null;
+    }
+    // Detect infinity symbol (∞) or any non-numeric symbols
+    const symbolRegex = /[∞@#$%^&*!?~`=\[\]{}<>|\\/"';:,.\-+a-zA-Z]/;
+    if (symbolRegex.test(val) || val === '∞') {
+      setError("Oops, that's not a number... it's a symbol!");
+      return null;
+    }
+    const n = parseInt(val);
+    if (isNaN(n) || n < 1) {
+      if (n === 0) {
+        setError('Oops... wrong number...');
+      } else {
+        setError("Where's the number?");
+      }
+      return null;
+    }
+    clearError();
+    return n;
+  }
+
+  // File handling
+  function loadFile(file) {
+    if (!file || !file.type.startsWith('audio/')) return;
+    fileName.textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      audioCtx.decodeAudioData(e.target.result.slice(0), (buf) => {
+        audioBuffer = buf;
+        drawWaveform(buf);
+        btnPlay.disabled = false;
+        btnDownload.disabled = false;
+        setStatus('Ready');
+      });
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  fileInput.addEventListener('change', (e) => loadFile(e.target.files[0]));
+
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    loadFile(e.dataTransfer.files[0]);
+  });
+
+  // Stepper
+  btnMinus.addEventListener('click', () => {
+    const v = parseInt(loopInput.value) || 1;
+    loopInput.value = Math.max(1, v - 1);
+    clearError();
+  });
+
+  btnPlus.addEventListener('click', () => {
+    const v = parseInt(loopInput.value) || 0;
+    loopInput.value = v + 1;
+    clearError();
+  });
+
+  loopInput.addEventListener('input', clearError);
+
+  // Play
+  btnPlay.addEventListener('click', () => {
+    if (!audioBuffer) return;
+    if (isPlaying) return;
+
+    const loops = validateLoopCount();
+    if (loops === null) return;
+
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+
+    totalLoops = loops;
+    currentLoop = 0;
+    stopRequested = false;
+    isPlaying = true;
+    btnPlay.disabled = true;
+    btnStop.disabled = false;
+    loopCounter.textContent = `1 / ${totalLoops}`;
+    setStatus('Playing...', true);
+
+    playNextLoop();
+  });
+
+  let animFrame;
+
+  function playNextLoop() {
+    if (stopRequested || currentLoop >= totalLoops) {
+      finishPlayback();
+      return;
+    }
+
+    currentLoop++;
+    loopCounter.textContent = `${currentLoop} / ${totalLoops}`;
+
+    sourceNode = audioCtx.createBufferSource();
+    sourceNode.buffer = audioBuffer;
+    sourceNode.connect(audioCtx.destination);
+    startTime = audioCtx.currentTime;
+
+    sourceNode.onended = () => {
+      if (!stopRequested) playNextLoop();
+    };
+
+    sourceNode.start();
+    animateProgress();
+  }
+
+  function animateProgress() {
+    cancelAnimationFrame(animFrame);
+    function tick() {
+      if (!isPlaying) return;
+      const elapsed = audioCtx.currentTime - startTime;
+      const dur = audioBuffer.duration;
+      const overallProgress = ((currentLoop - 1) + Math.min(elapsed / dur, 1)) / totalLoops;
+      progressBar.style.width = (overallProgress * 100) + '%';
+      updateBars(Math.min(elapsed / dur, 1));
+      if (elapsed < dur) animFrame = requestAnimationFrame(tick);
+    }
+    animFrame = requestAnimationFrame(tick);
+  }
+
+  function finishPlayback() {
+    isPlaying = false;
+    sourceNode = null;
+    cancelAnimationFrame(animFrame);
+    clearBars();
+    btnPlay.disabled = false;
+    btnStop.disabled = true;
+    progressBar.style.width = stopRequested ? '0%' : '100%';
+    loopCounter.textContent = stopRequested ? '— / —' : `${totalLoops} / ${totalLoops}`;
+    setStatus(stopRequested ? 'Stopped' : 'Done ✓', false);
+    if (!stopRequested) {
+      setTimeout(() => { progressBar.style.width = '0%'; setStatus('Ready'); loopCounter.textContent = '— / —'; }, 2000);
+    }
+  }
+
+  btnStop.addEventListener('click', () => {
+    if (!isPlaying) return;
+    stopRequested = true;
+    if (sourceNode) { sourceNode.onended = null; try { sourceNode.stop(); } catch(e){} }
+    finishPlayback();
+  });
+
+  // Download — renders the looped audio offline
+  btnDownload.addEventListener('click', async () => {
+    if (!audioBuffer) return;
+    const loops = validateLoopCount();
+    if (loops === null) return;
+
+    btnDownload.disabled = true;
+    btnDownload.textContent = '⏳ Rendering...';
+    setStatus('Rendering...', true);
+
+    try {
+      const totalLength = audioBuffer.length * loops;
+      const offCtx = new OfflineAudioContext(
+        audioBuffer.numberOfChannels,
+        totalLength,
+        audioBuffer.sampleRate
+      );
+
+      for (let i = 0; i < loops; i++) {
+        const src = offCtx.createBufferSource();
+        src.buffer = audioBuffer;
+        src.connect(offCtx.destination);
+        src.start(audioBuffer.duration * i);
+      }
+
+      const rendered = await offCtx.startRendering();
+      const wavBlob = bufferToWav(rendered);
+      const url = URL.createObjectURL(wavBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'audloop_output.wav';
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatus('Downloaded!', false);
+    } catch(e) {
+      setStatus('Error: ' + e.message, false);
+    }
+
+    btnDownload.disabled = false;
+    btnDownload.textContent = '↓ Download';
+  });
+
+  // Buffer → WAV encoder
+  function bufferToWav(buffer) {
+    const numCh = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const numSamples = buffer.length;
+    const bytesPerSample = 2;
+    const blockAlign = numCh * bytesPerSample;
+    const byteRate = sampleRate * blockAlign;
+    const dataSize = numSamples * blockAlign;
+    const totalSize = 44 + dataSize;
+
+    const arrayBuf = new ArrayBuffer(totalSize);
+    const view = new DataView(arrayBuf);
+
+    function writeStr(offset, str) {
+      for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    }
+
+    writeStr(0, 'RIFF');
+    view.setUint32(4, totalSize - 8, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numCh, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, dataSize, true);
+
+    let offset = 44;
+    for (let i = 0; i < numSamples; i++) {
+      for (let ch = 0; ch < numCh; ch++) {
+        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+        offset += 2;
+      }
+    }
+
+    return new Blob([arrayBuf], { type: 'audio/wav' });
+  }
+</script>
+</body>
+</html>
